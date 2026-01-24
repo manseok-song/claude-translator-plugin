@@ -1,0 +1,38 @@
+{
+  "name": "claude-translator",
+  "version": "2.0.0",
+  "description": "DOCX 도서 번역 워크플로우 - 다국어 지원 (ko, en, ja, zh, es, fr, de)",
+  "author": "Your Name",
+  "repository": "https://github.com/your-username/claude-translator-plugin",
+  "license": "MIT",
+  "engines": {
+    "claude-code": ">=1.0.0"
+  },
+  "dependencies": {
+    "pandoc": ">=2.0.0",
+    "python3": ">=3.8.0"
+  },
+  "skills": [
+    "translate-book"
+  ],
+  "agents": [
+    "glossary-extractor",
+    "unified-translator",
+    "finalizer"
+  ],
+  "permissions": {
+    "allow": [
+      "Task",
+      "Read",
+      "Write",
+      "Bash(pandoc:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "Bash(wc:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}

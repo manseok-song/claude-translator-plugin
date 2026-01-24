@@ -1,0 +1,127 @@
+# Claude Translator Plugin
+
+DOCX 도서를 다국어로 번역하는 Claude Code 플러그인입니다.
+
+## 특징
+
+- **다국어 지원**: 한국어, 영어, 일본어, 중국어, 스페인어, 프랑스어, 독일어
+- **토큰 효율적**: v2 아키텍처로 60%+ 토큰 절감
+- **병렬 처리**: 청크 단위 병렬 번역으로 대용량 원고 처리
+- **품질 보장**: 용어집 + 번역 지침서 기반 일관된 번역
+- **이미지 보존**: 원본 DOCX의 이미지를 번역본에 유지
+
+## 설치
+
+### Claude Code 설정에 플러그인 추가
+
+`~/.claude/settings.json`:
+
+```json
+{
+  "plugins": [
+    "github:your-username/claude-translator-plugin"
+  ]
+}
+```
+
+### 의존성
+
+- **pandoc** >= 2.0.0 (DOCX ↔ Markdown 변환)
+- **python3** >= 3.8.0 (선택: python-docx 사용 시)
+
+```bash
+# macOS
+brew install pandoc
+
+# Ubuntu/Debian
+sudo apt install pandoc
+
+# Windows
+choco install pandoc
+```
+
+## 사용법
+
+```bash
+/translate-book <파일경로> [타겟언어]
+```
+
+### 예시
+
+```bash
+/translate-book book.docx           # → 한국어 (기본값)
+/translate-book book.docx ko        # → 한국어
+/translate-book book.docx en        # → 영어
+/translate-book book.docx ja        # → 일본어
+/translate-book book.docx zh        # → 중국어
+```
+
+### 지원 언어 코드
+
+| 코드 | 언어 |
+|------|------|
+| ko | 한국어 |
+| en | 영어 |
+| ja | 일본어 |
+| zh | 중국어 |
+| es | 스페인어 |
+| fr | 프랑스어 |
+| de | 독일어 |
+
+## 아키텍처
+
+```
+[original.docx]
+       │
+       ▼
+┌─────────────────────────┐
+│   glossary-extractor    │ → glossary.json + guide.md + chunks/
+└─────────────────────────┘
+       │
+       ▼ (병렬 실행)
+┌─────────────────────────┐
+│  unified-translator x N │ → translated_001.md, 002.md, ...
+└─────────────────────────┘
+       │
+       ▼
+┌─────────────────────────┐
+│       finalizer         │ → final.md + translated.docx
+└─────────────────────────┘
+```
+
+### 서브에이전트
+
+| 에이전트 | 역할 |
+|---------|------|
+| `glossary-extractor` | 용어집 + 번역 지침서 + 청크 분할 |
+| `unified-translator` | 번역 + 검수 + 의역 (통합) |
+| `finalizer` | 병합 + 교정 + DOCX 빌드 |
+
+## 출력 파일
+
+```
+translation_ko_YYYYMMDD_HHMMSS/
+├── original.docx           # 원본
+└── output/
+    ├── source.md           # 원본 텍스트
+    ├── media/              # 원본 이미지
+    ├── chunks/             # 원본 청크
+    ├── translated/         # 번역 청크
+    ├── glossary.json       # 용어집
+    ├── translation_guide.md # 번역 지침서
+    ├── final.md            # 최종 병합본
+    └── translated.docx     # 최종 DOCX
+```
+
+## 번역 원칙
+
+**"타겟 언어의 네이티브 작가가 처음부터 쓴 것처럼"**
+
+- 직역 금지, 의역 우선
+- 번역투 표현 제거
+- 문화적 맥락 고려
+- 캐릭터별 말투 일관성 유지
+
+## 라이선스
+
+MIT License

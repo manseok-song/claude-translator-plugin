@@ -1,0 +1,173 @@
+# 도서 번역 워크플로우 v2
+
+**사용법**:
+```
+/translate-book <파일경로> [타겟언어]
+```
+
+**예시**:
+```bash
+/translate-book book.docx           # 자동 감지 → 한국어 (기본값)
+/translate-book book.docx ko        # → 한국어
+/translate-book book.docx en        # → 영어
+/translate-book book.docx ja        # → 일본어
+/translate-book book.docx zh        # → 중국어
+```
+
+**입력**: {{ARGS}}
+
+## 인자 파싱
+
+```
+{{ARGS}}를 파싱하여:
+- FILE_PATH: 첫 번째 인자 (DOCX 파일 경로)
+- TARGET_LANG: 두 번째 인자 (없으면 기본값 "ko")
+
+지원 언어 코드:
+- ko: 한국어 (Korean)
+- en: 영어 (English)
+- ja: 일본어 (Japanese)
+- zh: 중국어 (Chinese)
+- es: 스페인어 (Spanish)
+- fr: 프랑스어 (French)
+- de: 독일어 (German)
+```
+
+## 작업 디렉토리 설정
+
+```bash
+# 작업 디렉토리 생성
+WORK_DIR="./translation_${TARGET_LANG}_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$WORK_DIR"/{output,temp}
+cp "$FILE_PATH" "$WORK_DIR/original.docx"
+```
+
+## 아키텍처 v2 (토큰 효율적)
+
+```
+[original.docx]
+       │
+       ▼
+┌─────────────────────────┐
+│   glossary-extractor    │ → glossary.json + guide.md + chunks/
+│       (sonnet)          │
+└─────────────────────────┘
+       │
+       ▼ (병렬 실행)
+┌─────────────────────────┐
+│  unified-translator x N │ → translated_001.md, 002.md, ...
+│       (sonnet)          │    (청크별 병렬 처리)
+└─────────────────────────┘
+       │
+       ▼
+┌─────────────────────────┐
+│       finalizer         │ → final.md + translated.docx
+│       (sonnet)          │
+└─────────────────────────┘
+```
+
+---
+
+## Step 1: 용어집 + 청크 분할
+
+**Task 도구로 `glossary-extractor` 서브에이전트 실행:**
+
+```
+서브에이전트에게 전달할 내용:
+- 원본 파일: $WORK_DIR/original.docx
+- 출력 위치: $WORK_DIR/output/
+- 타겟 언어: $TARGET_LANG
+- 작업: 용어집(glossary.json), 번역 지침서(translation_guide.md), 청크 분할(chunks/)
+```
+
+**완료 확인**:
+- [ ] `$WORK_DIR/output/glossary.json` 존재
+- [ ] `$WORK_DIR/output/translation_guide.md` 존재
+- [ ] `$WORK_DIR/output/chunks/` 디렉토리에 청크 파일들 존재
+- [ ] `$WORK_DIR/output/chunks.json` 존재
+
+---
+
+## Step 2: 청크별 병렬 번역
+
+**Task 도구로 `unified-translator` 서브에이전트를 청크별로 병렬 실행:**
+
+```
+각 청크에 대해:
+- 청크 파일: $WORK_DIR/output/chunks/chunk_XXX.md
+- 용어집: $WORK_DIR/output/glossary.json
+- 지침서: $WORK_DIR/output/translation_guide.md
+- 타겟 언어: $TARGET_LANG
+- 출력: $WORK_DIR/output/translated/translated_XXX.md
+- 작업: 번역 + 검수 + 의역 (통합 처리)
+```
+
+**병렬 처리 전략**:
+- 10개 이하: 한 번에 모두 병렬 실행
+- 10개 초과: 10개씩 배치로 나누어 실행
+
+**완료 확인**:
+- [ ] 모든 `translated_XXX.md` 파일 생성됨
+- [ ] 청크 수 = 번역 파일 수
+
+---
+
+## Step 3: 병합 + DOCX 빌드
+
+**Task 도구로 `finalizer` 서브에이전트 실행:**
+
+```
+서브에이전트에게 전달할 내용:
+- 번역된 청크들: $WORK_DIR/output/translated/
+- 청크 정보: $WORK_DIR/output/chunks.json
+- 원본 DOCX: $WORK_DIR/original.docx
+- 출력: $WORK_DIR/output/final.md, $WORK_DIR/output/translated.docx
+```
+
+**완료 확인**:
+- [ ] `$WORK_DIR/output/final.md` 생성됨
+- [ ] `$WORK_DIR/output/translated.docx` 생성됨
+
+---
+
+## 핵심 번역 원칙
+
+**"타겟 언어의 네이티브 작가가 처음부터 쓴 것처럼"** - 직역 금지, 의역 우선
+
+### 한국어 번역 시 금지 패턴
+- "~의" 과다 사용
+- "~하는 것"
+- "~에 대한/대해"
+- "그녀는/그는" (이름이나 생략 사용)
+
+### 영어 번역 시 주의
+- Konglish 금지
+- 관사/시제 정확성
+- Show don't tell
+
+### 일본어 번역 시 주의
+- 경어 레벨 통일 (である体/です体)
+
+---
+
+## 최종 산출물
+
+```
+$WORK_DIR/output/
+├── source.md              # 원본 텍스트
+├── media/                 # 원본 이미지
+├── chunks.json            # 청크 분할 정보
+├── chunks/                # 원본 청크 파일들
+├── translated/            # 번역된 청크 파일들
+├── glossary.json          # 용어집
+├── translation_guide.md   # 번역 지침서
+├── final.md               # 최종 병합본
+└── translated.docx        # 최종 DOCX
+```
+
+## 완료 메시지
+
+모든 단계가 완료되면 사용자에게 보고:
+- 작업 디렉토리 위치
+- 각 단계별 산출물 목록
+- 최종 DOCX 파일 경로
