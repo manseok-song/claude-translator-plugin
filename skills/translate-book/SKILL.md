@@ -22,6 +22,9 @@
 {{ARGS}}를 파싱하여:
 - FILE_PATH: 첫 번째 인자 (DOCX 파일 경로)
 - TARGET_LANG: 두 번째 인자 (없으면 기본값 "ko")
+- FILE_NAME: 파일명에서 확장자 제거 (예: "BLACK HAWK WAR.docx" → "BLACK_HAWK_WAR")
+  - 공백은 언더스코어(_)로 치환
+  - 특수문자 제거
 
 지원 언어 코드:
 - ko: 한국어 (Korean)
@@ -36,8 +39,11 @@
 ## 작업 디렉토리 설정
 
 ```bash
-# 작업 디렉토리 생성
-WORK_DIR="./translation_${TARGET_LANG}_$(date +%Y%m%d_%H%M%S)"
+# 파일명 추출 (확장자 제거, 공백→언더스코어)
+FILE_NAME=$(basename "$FILE_PATH" .docx | tr ' ' '_' | tr -cd '[:alnum:]_-')
+
+# 작업 디렉토리 생성 (파일명_언어코드 형식)
+WORK_DIR="./${FILE_NAME}_${TARGET_LANG}"
 mkdir -p "$WORK_DIR"/{output,temp}
 cp "$FILE_PATH" "$WORK_DIR/original.docx"
 ```
@@ -121,12 +127,14 @@ cp "$FILE_PATH" "$WORK_DIR/original.docx"
 - 번역된 청크들: $WORK_DIR/output/translated/
 - 청크 정보: $WORK_DIR/output/chunks.json
 - 원본 DOCX: $WORK_DIR/original.docx
-- 출력: $WORK_DIR/output/final.md, $WORK_DIR/output/translated.docx
+- 파일명: $FILE_NAME
+- 타겟 언어: $TARGET_LANG
+- 출력: $WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.md, $WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.docx
 ```
 
 **완료 확인**:
-- [ ] `$WORK_DIR/output/final.md` 생성됨
-- [ ] `$WORK_DIR/output/translated.docx` 생성됨
+- [ ] `$WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.md` 생성됨
+- [ ] `$WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.docx` 생성됨
 
 ---
 
@@ -153,16 +161,18 @@ cp "$FILE_PATH" "$WORK_DIR/original.docx"
 ## 최종 산출물
 
 ```
-$WORK_DIR/output/
-├── source.md              # 원본 텍스트
-├── media/                 # 원본 이미지
-├── chunks.json            # 청크 분할 정보
-├── chunks/                # 원본 청크 파일들
-├── translated/            # 번역된 청크 파일들
-├── glossary.json          # 용어집
-├── translation_guide.md   # 번역 지침서
-├── final.md               # 최종 병합본
-└── translated.docx        # 최종 DOCX
+${FILE_NAME}_${TARGET_LANG}/          # 예: BLACK_HAWK_WAR_ko/
+├── original.docx                     # 원본 파일
+└── output/
+    ├── source.md                     # 원본 텍스트
+    ├── media/                        # 원본 이미지
+    ├── chunks.json                   # 청크 분할 정보
+    ├── chunks/                       # 원본 청크 파일들
+    ├── translated/                   # 번역된 청크 파일들
+    ├── glossary.json                 # 용어집
+    ├── translation_guide.md          # 번역 지침서
+    ├── ${FILE_NAME}_${TARGET_LANG}.md    # 최종 병합본 (예: BLACK_HAWK_WAR_ko.md)
+    └── ${FILE_NAME}_${TARGET_LANG}.docx  # 최종 DOCX (예: BLACK_HAWK_WAR_ko.docx)
 ```
 
 ## 완료 메시지

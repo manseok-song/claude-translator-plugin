@@ -100,17 +100,17 @@ choco install pandoc
 ## 출력 파일
 
 ```
-translation_ko_YYYYMMDD_HHMMSS/
-├── original.docx           # 원본
+BLACK_HAWK_WAR_ko/                    # 원본파일명_언어코드
+├── original.docx                     # 원본
 └── output/
-    ├── source.md           # 원본 텍스트
-    ├── media/              # 원본 이미지
-    ├── chunks/             # 원본 청크
-    ├── translated/         # 번역 청크
-    ├── glossary.json       # 용어집
-    ├── translation_guide.md # 번역 지침서
-    ├── final.md            # 최종 병합본
-    └── translated.docx     # 최종 DOCX
+    ├── source.md                     # 원본 텍스트
+    ├── media/                        # 원본 이미지
+    ├── chunks/                       # 원본 청크
+    ├── translated/                   # 번역 청크
+    ├── glossary.json                 # 용어집
+    ├── translation_guide.md          # 번역 지침서
+    ├── BLACK_HAWK_WAR_ko.md          # 최종 병합본
+    └── BLACK_HAWK_WAR_ko.docx        # 최종 DOCX
 ```
 
 ## 번역 원칙

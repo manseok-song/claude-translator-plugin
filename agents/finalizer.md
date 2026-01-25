@@ -16,7 +16,9 @@ model: claude-sonnet-4-5-20250929
 - 번역된 청크들: `$OUTPUT_DIR/translated/translated_*.md`
 - 청크 정보: `$OUTPUT_DIR/chunks.json`
 - 원본 DOCX: `$WORK_DIR/original.docx`
-- 출력: `$OUTPUT_DIR/final.md`, `$OUTPUT_DIR/translated.docx`
+- **파일명**: `$FILE_NAME` (예: `BLACK_HAWK_WAR`)
+- **타겟 언어**: `$TARGET_LANG` (예: `ko`)
+- 출력: `$OUTPUT_DIR/${FILE_NAME}_${TARGET_LANG}.md`, `$OUTPUT_DIR/${FILE_NAME}_${TARGET_LANG}.docx`
 
 ---
 
@@ -59,7 +61,7 @@ tr -d '\\' < merged.md > temp && mv temp merged.md
 sed 's/^    //' merged.md > temp && mv temp merged.md
 
 # 5. --- 구분선 제거 - YAML 메타데이터로 오인됨
-sed '/^---$/d' merged.md > final.md
+sed '/^---$/d' merged.md > "${FILE_NAME}_${TARGET_LANG}.md"
 ```
 
 > **중요**: 이 정리 과정을 거치지 않으면 DOCX에서 텍스트가 세로로 늘어지는 문제가 발생합니다.
@@ -73,7 +75,7 @@ sed '/^---$/d' merged.md > final.md
 ```bash
 # $OUTPUT_DIR에서 실행해야 media/ 폴더의 이미지가 포함됨
 cd "$OUTPUT_DIR"
-pandoc "final.md" -o "translated.docx" --from markdown-yaml_metadata_block
+pandoc "${FILE_NAME}_${TARGET_LANG}.md" -o "${FILE_NAME}_${TARGET_LANG}.docx" --from markdown-yaml_metadata_block
 ```
 
 > **중요**: `media/` 폴더가 `final.md`와 같은 경로에 있어야 이미지가 DOCX에 포함됩니다.
@@ -95,10 +97,10 @@ doc = Document()
 
 ```bash
 # 파일 생성 확인
-ls -la translated.docx
+ls -la "${FILE_NAME}_${TARGET_LANG}.docx"
 
 # 파일 크기 비교
-ls -la original.docx translated.docx
+ls -la "$WORK_DIR/original.docx" "${FILE_NAME}_${TARGET_LANG}.docx"
 ```
 
 ---
@@ -107,9 +109,9 @@ ls -la original.docx translated.docx
 
 ```
 $OUTPUT_DIR/
-├── merged.md           # 병합된 번역본
-├── final.md            # 교정 완료본
-└── translated.docx     # 최종 DOCX
+├── merged.md                           # 병합된 번역본
+├── ${FILE_NAME}_${TARGET_LANG}.md      # 최종 마크다운 (예: BLACK_HAWK_WAR_ko.md)
+└── ${FILE_NAME}_${TARGET_LANG}.docx    # 최종 DOCX (예: BLACK_HAWK_WAR_ko.docx)
 ```
 
 ---
@@ -121,7 +123,7 @@ $OUTPUT_DIR/
 
 - 병합된 청크: N개
 - 총 문자 수: N자
-- 최종 파일: translated.docx (N KB)
+- 최종 파일: ${FILE_NAME}_${TARGET_LANG}.docx (N KB)
 ```
 
 ---
@@ -129,5 +131,5 @@ $OUTPUT_DIR/
 ## 완료 조건
 
 - [ ] 모든 청크가 올바른 순서로 병합됨
-- [ ] `final.md` 생성됨
-- [ ] `translated.docx` 생성됨
+- [ ] `${FILE_NAME}_${TARGET_LANG}.md` 생성됨
+- [ ] `${FILE_NAME}_${TARGET_LANG}.docx` 생성됨
