@@ -7,11 +7,11 @@
 
 **예시**:
 ```bash
-/translate-book book.docx           # 자동 감지 → 한국어 (기본값)
-/translate-book book.docx ko        # → 한국어
+/translate-book book.docx ko        # DOCX → 한국어
+/translate-book book.pdf ko         # PDF → 한국어 (자동 변환)
 /translate-book book.docx en        # → 영어
 /translate-book book.docx ja        # → 일본어
-/translate-book book.docx zh        # → 중국어
+/translate-book book.pdf zh         # PDF → 중국어
 ```
 
 **입력**: {{ARGS}}
@@ -20,12 +20,14 @@
 
 ```
 {{ARGS}}를 파싱하여:
-- FILE_PATH: 첫 번째 인자 (DOCX 파일 경로)
+- FILE_PATH: 첫 번째 인자 (DOCX 또는 PDF 파일 경로)
 - TARGET_LANG: 두 번째 인자 (없으면 기본값 "ko")
+- FILE_EXT: 파일 확장자 (.docx 또는 .pdf)
 - FILE_NAME: 파일명에서 확장자 제거 (예: "BLACK HAWK WAR.docx" → "BLACK_HAWK_WAR")
   - 공백은 언더스코어(_)로 치환
   - 특수문자 제거
 
+지원 파일 형식: .docx, .pdf
 지원 언어 코드:
 - ko: 한국어 (Korean)
 - en: 영어 (English)
@@ -39,18 +41,43 @@
 ## 작업 디렉토리 설정
 
 ```bash
+# 확장자 감지
+FILE_EXT="${FILE_PATH##*.}"   # docx 또는 pdf
+
 # 파일명 추출 (확장자 제거, 공백→언더스코어)
-FILE_NAME=$(basename "$FILE_PATH" .docx | tr ' ' '_' | tr -cd '[:alnum:]_-')
+FILE_NAME=$(basename "$FILE_PATH" ".$FILE_EXT" | tr ' ' '_' | tr -cd '[:alnum:]_-')
 
 # 작업 디렉토리 생성 (파일명_언어코드 형식)
 WORK_DIR="./${FILE_NAME}_${TARGET_LANG}"
 mkdir -p "$WORK_DIR"/{output,temp}
-cp "$FILE_PATH" "$WORK_DIR/original.docx"
 ```
+
+## PDF 변환 (PDF 입력 시에만)
+
+```bash
+# PDF인 경우 → DOCX로 자동 변환
+if [ "$FILE_EXT" = "pdf" ]; then
+    cp "$FILE_PATH" "$WORK_DIR/original.pdf"
+    python3 -c "
+from pdf2docx import Converter
+cv = Converter('$WORK_DIR/original.pdf')
+cv.convert('$WORK_DIR/original.docx')
+cv.close()
+"
+    echo "PDF → DOCX 변환 완료"
+else
+    cp "$FILE_PATH" "$WORK_DIR/original.docx"
+fi
+```
+
+> **참고**: PDF 변환에는 `pdf2docx` 패키지가 필요합니다. 없으면 자동 설치: `pip install pdf2docx`
 
 ## 아키텍처 v2 (토큰 효율적)
 
 ```
+[original.docx / original.pdf]
+       │
+       ▼ (PDF인 경우 pdf2docx로 자동 변환)
 [original.docx]
        │
        ▼

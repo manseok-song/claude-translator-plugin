@@ -1,16 +1,17 @@
 {
   "name": "claude-translator",
-  "version": "2.0.0",
-  "description": "DOCX 도서 번역 워크플로우 - 다국어 지원 (ko, en, ja, zh, es, fr, de)",
-  "author": "Your Name",
-  "repository": "https://github.com/your-username/claude-translator-plugin",
+  "version": "2.1.0",
+  "description": "DOCX/PDF 도서 번역 워크플로우 - 다국어 지원 (ko, en, ja, zh, es, fr, de)",
+  "author": "manseok-song",
+  "repository": "https://github.com/manseok-song/claude-translator-plugin",
   "license": "MIT",
   "engines": {
     "claude-code": ">=1.0.0"
   },
   "dependencies": {
     "pandoc": ">=2.0.0",
-    "python3": ">=3.8.0"
+    "python3": ">=3.8.0",
+    "pdf2docx": ">=0.5.0"
   },
   "skills": [
     "translate-book"
@@ -25,6 +26,7 @@
       "Task",
       "Read",
       "Write",
+      "Edit",
       "Bash(pandoc:*)",
       "Bash(mkdir:*)",
       "Bash(cp:*)",
@@ -32,7 +34,16 @@
       "Bash(ls:*)",
       "Bash(mv:*)",
       "Bash(wc:*)",
-      "Bash(python3:*)"
+      "Bash(sed:*)",
+      "Bash(tr:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(echo:*)",
+      "Bash(for:*)",
+      "Bash(seq:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(pip:*)"
     ]
   }
 }

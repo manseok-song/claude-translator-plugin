@@ -1,14 +1,15 @@
 # Claude Translator Plugin
 
-DOCX 도서를 다국어로 번역하는 Claude Code 플러그인입니다.
+DOCX/PDF 도서를 다국어로 번역하는 Claude Code 플러그인입니다.
 
 ## 특징
 
 - **다국어 지원**: 한국어, 영어, 일본어, 중국어, 스페인어, 프랑스어, 독일어
+- **DOCX + PDF 지원**: PDF 입력 시 자동으로 DOCX 변환 후 번역
 - **토큰 효율적**: v2 아키텍처로 60%+ 토큰 절감
 - **병렬 처리**: 청크 단위 병렬 번역으로 대용량 원고 처리
 - **품질 보장**: 용어집 + 번역 지침서 기반 일관된 번역
-- **이미지 보존**: 원본 DOCX의 이미지를 번역본에 유지
+- **이미지 보존**: 원본의 이미지를 번역본에 유지
 
 ## 설치
 
@@ -19,7 +20,7 @@ DOCX 도서를 다국어로 번역하는 Claude Code 플러그인입니다.
 ```json
 {
   "plugins": [
-    "github:your-username/claude-translator-plugin"
+    "github:manseok-song/claude-translator-plugin"
   ]
 }
 ```
@@ -27,17 +28,17 @@ DOCX 도서를 다국어로 번역하는 Claude Code 플러그인입니다.
 ### 의존성
 
 - **pandoc** >= 2.0.0 (DOCX ↔ Markdown 변환)
-- **python3** >= 3.8.0 (선택: python-docx 사용 시)
+- **python3** >= 3.8.0
+- **pdf2docx** >= 0.5.0 (PDF 입력 시 필요)
 
 ```bash
-# macOS
-brew install pandoc
+# pandoc 설치
+brew install pandoc          # macOS
+sudo apt install pandoc      # Ubuntu/Debian
+choco install pandoc         # Windows
 
-# Ubuntu/Debian
-sudo apt install pandoc
-
-# Windows
-choco install pandoc
+# pdf2docx 설치 (PDF 지원)
+pip install pdf2docx
 ```
 
 ## 사용법
@@ -49,12 +50,19 @@ choco install pandoc
 ### 예시
 
 ```bash
-/translate-book book.docx           # → 한국어 (기본값)
-/translate-book book.docx ko        # → 한국어
-/translate-book book.docx en        # → 영어
-/translate-book book.docx ja        # → 일본어
-/translate-book book.docx zh        # → 중국어
+/translate-book book.docx ko        # DOCX → 한국어
+/translate-book book.pdf en         # PDF → 영어 (자동 변환)
+/translate-book book.docx en        # DOCX → 영어
+/translate-book book.pdf ko         # PDF → 한국어
+/translate-book book.docx ja        # DOCX → 일본어
 ```
+
+### 지원 파일 형식
+
+| 형식 | 처리 방식 |
+|------|----------|
+| `.docx` | 직접 처리 |
+| `.pdf` | pdf2docx로 DOCX 변환 후 처리 |
 
 ### 지원 언어 코드
 
@@ -71,6 +79,9 @@ choco install pandoc
 ## 아키텍처
 
 ```
+[original.docx / original.pdf]
+       │
+       ▼ (PDF → DOCX 자동 변환)
 [original.docx]
        │
        ▼
