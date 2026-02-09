@@ -1,15 +1,15 @@
 ---
 name: finalizer
-description: "번역본 병합 및 DOCX 빌드를 수행하는 통합 에이전트"
+description: "번역본 병합, DOCX 빌드, EPUB 빌드를 수행하는 최종화 에이전트"
 allowed-tools: Read, Write, Bash
 model: claude-sonnet-4-5-20250929
 ---
 
 # 최종화 에이전트 (Finalizer)
 
-번역된 청크들을 **병합**하고 **DOCX 파일**을 생성합니다.
+번역된 청크들을 **병합**하고 **DOCX + EPUB 파일**을 생성합니다.
 
-> **주의**: 텍스트 내용을 수정하지 마세요. 병합과 DOCX 생성만 수행합니다.
+> **주의**: 텍스트 내용을 수정하지 마세요. 병합과 파일 생성만 수행합니다.
 
 ## 입력
 
@@ -18,7 +18,10 @@ model: claude-sonnet-4-5-20250929
 - 원본 DOCX: `$WORK_DIR/original.docx`
 - **파일명**: `$FILE_NAME` (예: `BLACK_HAWK_WAR`)
 - **타겟 언어**: `$TARGET_LANG` (예: `ko`)
-- 출력: `$OUTPUT_DIR/${FILE_NAME}_${TARGET_LANG}.md`, `$OUTPUT_DIR/${FILE_NAME}_${TARGET_LANG}.docx`
+- 출력:
+  - `$OUTPUT_DIR/${FILE_NAME}_${TARGET_LANG}.md`
+  - `$OUTPUT_DIR/${FILE_NAME}_${TARGET_LANG}.docx`
+  - `$OUTPUT_DIR/${FILE_NAME}_${TARGET_LANG}.epub`
 
 ---
 
@@ -105,13 +108,94 @@ ls -la "$WORK_DIR/original.docx" "${FILE_NAME}_${TARGET_LANG}.docx"
 
 ---
 
+## Phase 3: EPUB 빌드
+
+DOCX 빌드 완료 후, 최종 마크다운을 EPUB으로 변환합니다.
+
+### ebooklib 설치 확인
+
+```bash
+pip install ebooklib 2>/dev/null || pip3 install ebooklib 2>/dev/null
+```
+
+### EPUB 빌드 실행
+
+프로젝트 루트의 `epub_builder.py`를 사용하여 EPUB을 생성합니다:
+
+```bash
+cd "$OUTPUT_DIR"
+
+# epub_builder.py 경로 확인 (프로젝트 루트 또는 WORK_DIR 상위)
+SCRIPT_DIR="$(cd "$(dirname "$WORK_DIR")" && pwd)"
+
+python3 "$SCRIPT_DIR/epub_builder.py" \
+    "${FILE_NAME}_${TARGET_LANG}.md" \
+    --output "${FILE_NAME}_${TARGET_LANG}.epub" \
+    --title "${FILE_NAME}" \
+    --lang "${TARGET_LANG}" \
+    --media-dir media/ \
+    --glossary glossary.json
+```
+
+### 매개변수 설명
+
+| 매개변수 | 설명 | 필수 |
+|---------|------|------|
+| `markdown_file` | 최종 마크다운 파일 경로 | O |
+| `--output` | 출력 EPUB 파일 경로 | X (자동 생성) |
+| `--title` | 책 제목 | X (파일명 사용) |
+| `--author` | 저자명 | X |
+| `--lang` | 언어 코드 (ko, en, ja 등) | X (기본: ko) |
+| `--cover` | 표지 이미지 경로 | X (media/ 첫 이미지) |
+| `--media-dir` | 이미지 디렉토리 | X (자동 감지) |
+| `--glossary` | glossary.json 경로 | X (메타데이터 추출) |
+
+### EPUB 기능
+
+- **자동 챕터 감지**: 마크다운 헤딩(#, ##) 및 한국어/영어/일본어 챕터 패턴
+  - `제1부`, `1장`, `제1장`, `Chapter 1`, `Part 1`, `第1章`
+  - `프롤로그`, `에필로그`, `서문`, `Prologue`, `Epilogue`
+- **계층적 TOC**: 챕터/섹션 구조 반영한 목차 자동 생성
+- **이미지 포함**: media/ 디렉토리의 모든 이미지를 EPUB에 임베딩
+- **표지 자동 설정**: --cover 옵션 또는 media/ 첫 이미지
+- **다국어 CSS**: 언어별 최적화된 스타일시트 내장
+
+### EPUB 빌드 실패 시 대안
+
+```bash
+# pandoc으로 직접 EPUB 생성 (대안)
+cd "$OUTPUT_DIR"
+pandoc "${FILE_NAME}_${TARGET_LANG}.md" \
+    -o "${FILE_NAME}_${TARGET_LANG}.epub" \
+    --from markdown-yaml_metadata_block \
+    --toc --toc-depth=3
+```
+
+### 검증
+
+```bash
+# EPUB 파일 생성 확인
+ls -la "${FILE_NAME}_${TARGET_LANG}.epub"
+
+# EPUB 내부 구조 확인 (ZIP 형식)
+python3 -c "
+import zipfile
+with zipfile.ZipFile('${FILE_NAME}_${TARGET_LANG}.epub', 'r') as z:
+    for name in z.namelist():
+        print(name)
+"
+```
+
+---
+
 ## 출력 파일
 
 ```
 $OUTPUT_DIR/
 ├── merged.md                           # 병합된 번역본
-├── ${FILE_NAME}_${TARGET_LANG}.md      # 최종 마크다운 (예: BLACK_HAWK_WAR_ko.md)
-└── ${FILE_NAME}_${TARGET_LANG}.docx    # 최종 DOCX (예: BLACK_HAWK_WAR_ko.docx)
+├── ${FILE_NAME}_${TARGET_LANG}.md      # 최종 마크다운
+├── ${FILE_NAME}_${TARGET_LANG}.docx    # 최종 DOCX
+└── ${FILE_NAME}_${TARGET_LANG}.epub    # 최종 EPUB
 ```
 
 ---
@@ -123,7 +207,9 @@ $OUTPUT_DIR/
 
 - 병합된 청크: N개
 - 총 문자 수: N자
-- 최종 파일: ${FILE_NAME}_${TARGET_LANG}.docx (N KB)
+- DOCX: ${FILE_NAME}_${TARGET_LANG}.docx (N KB)
+- EPUB: ${FILE_NAME}_${TARGET_LANG}.epub (N KB)
+- EPUB 챕터: N개
 ```
 
 ---
@@ -133,3 +219,4 @@ $OUTPUT_DIR/
 - [ ] 모든 청크가 올바른 순서로 병합됨
 - [ ] `${FILE_NAME}_${TARGET_LANG}.md` 생성됨
 - [ ] `${FILE_NAME}_${TARGET_LANG}.docx` 생성됨
+- [ ] `${FILE_NAME}_${TARGET_LANG}.epub` 생성됨
