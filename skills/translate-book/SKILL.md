@@ -109,6 +109,12 @@ fi
 │       finalizer         │ → final.md + .docx + .epub
 │   (서브에이전트, sonnet) │
 └─────────────────────────┘
+       │
+       ▼ (병합본 최종 검수)
+┌─────────────────────────┐
+│     final-reviewer      │ → 검수 + 수정 + 재빌드
+│   (서브에이전트, sonnet) │
+└─────────────────────────┘
 ```
 
 ---
@@ -259,6 +265,30 @@ Team Lead는 주기적으로 TaskList를 확인하여 진행 상황을 추적합
 - [ ] `$WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.md` 생성됨
 - [ ] `$WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.docx` 생성됨
 - [ ] `$WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.epub` 생성됨
+
+---
+
+## Step 3.5: 최종 검수 (Final Review)
+
+**finalizer 완료 후, Task 도구로 `final-reviewer` 서브에이전트 실행:**
+
+병합된 전체 번역본을 지능적으로 검수하여 미번역 영문, 이미지 캡션 유출, 서식 이상, 아티팩트 잔존, 헤딩 구조, 용어집 일관성, 빈 줄 보존을 점검합니다. 수정 발생 시 DOCX/EPUB을 자동 재빌드합니다.
+
+```
+서브에이전트에게 전달할 내용:
+- 최종 마크다운: $WORK_DIR/output/${FILE_NAME}_${TARGET_LANG}.md
+- 용어집: $WORK_DIR/output/glossary.json
+- 원본 DOCX: $WORK_DIR/original.docx
+- 파일명: $FILE_NAME
+- 타겟 언어: $TARGET_LANG
+- epub_builder.py 경로: 프로젝트 루트의 epub_builder.py
+- 출력 디렉토리: $WORK_DIR/output/
+```
+
+**완료 확인**:
+- [ ] 7개 검수 항목 모두 실행됨
+- [ ] 수정 발생 시 DOCX/EPUB 재빌드 완료
+- [ ] 최종 검수 보고 수신
 
 ---
 

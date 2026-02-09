@@ -1,6 +1,6 @@
 {
   "name": "claude-translator",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "DOCX/PDF 도서 번역 워크플로우 - Agent Teams 기반 다국어 지원 (ko, en, ja, zh, es, fr, de)",
   "author": "manseok-song",
   "repository": "https://github.com/manseok-song/claude-translator-plugin",
@@ -21,7 +21,8 @@
     "glossary-extractor",
     "unified-translator",
     "quality-reviewer",
-    "finalizer"
+    "finalizer",
+    "final-reviewer"
   ],
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"

@@ -44,30 +44,161 @@ cat translated/translated_001.md translated/translated_002.md ... > merged.md
 
 ---
 
-## Phase 1.5: 마크다운 정리 (DOCX 호환성)
+## Phase 1.5: 아티팩트 제거 + 마크다운 정리 (통합 Python 스크립트)
 
-병합된 마크다운에서 DOCX 변환 시 문제를 일으키는 요소를 제거합니다.
+병합된 마크다운에서 **pandoc 변환 아티팩트**를 제거하고, DOCX/EPUB 호환성을 위해 정리합니다.
 
-```bash
-cd "$OUTPUT_DIR"
+> **중요**: 모든 정리를 **단일 Python 스크립트**로 수행합니다. bash sed/tr 명령은 빈 줄(문단 구분)을 제거할 수 있으므로 **절대 사용하지 마세요**.
 
-# 1. 이미지 참조 추가 (맨 앞에)
-echo '![표지](media/image1.jpeg)' | cat - merged.md > temp && mv temp merged.md
+> **핵심 원칙**: 빈 줄은 마크다운의 문단 구분자입니다. 빈 줄이 없으면 pandoc이 전체 텍스트를 하나의 문단으로 처리합니다. **빈 줄을 반드시 보존**하세요.
 
-# 2. 블록 인용(> ) 제거 - DOCX에서 세로 텍스트 문제 유발
-sed 's/^> //' merged.md | sed 's/^>$//' > temp && mv temp merged.md
+```python
+import re, os
 
-# 3. 백슬래시 줄바꿈(\) 제거
-tr -d '\\' < merged.md > temp && mv temp merged.md
+INPUT = 'merged.md'
+# OUTPUT_FILE은 ${FILE_NAME}_${TARGET_LANG}.md 로 설정
+OUTPUT = f'{FILE_NAME}_{TARGET_LANG}.md'
 
-# 4. 4칸 들여쓰기 제거 - 코드 블록으로 오인됨
-sed 's/^    //' merged.md > temp && mv temp merged.md
+with open(INPUT, 'r', encoding='utf-8') as f:
+    content = f.read()
 
-# 5. --- 구분선 제거 - YAML 메타데이터로 오인됨
-sed '/^---$/d' merged.md > "${FILE_NAME}_${TARGET_LANG}.md"
+# ============================
+# 1. 줄바꿈 정규화 (Windows CRLF → LF)
+# ============================
+content = content.replace('\r\n', '\n')
+
+# ============================
+# 2. 아티팩트 제거
+# ============================
+
+# 2-1. [Pg XX] 페이지 마커 제거 (다양한 이스케이프 형태)
+content = re.sub(r'\\?\[Pg\s+\d+\\?\]\s*', '', content)
+
+# 2-2. AI 생성 이미지 alt text 교체
+content = re.sub(
+    r'!\[([^\]]*?AI 생성 콘텐츠[^\]]*?)\]',
+    '![이미지]',
+    content, flags=re.DOTALL
+)
+
+# 2-3. 외부 링크 목차 블록 제거 (gutenberg.org 등)
+content = re.sub(
+    r'\[([^\]]*?)\]\(https?://[^\)]+\)\\?\s*\n',
+    '',
+    content
+)
+
+# 2-4. 외부 각주 링크 → 마크다운 각주 변환
+content = re.sub(
+    r'\[\^?\\\[(\d+)\\\]\^?\]\(https?://[^\)]+\)',
+    r'[^\1]',
+    content
+)
+
+# 2-5. 잔여 외부 URL 제거
+content = re.sub(r'\(https?://www\.gutenberg\.org/[^\)]*\)', '', content)
+
+# ============================
+# 3. 헤딩 구조 확인
+# ============================
+headings = re.findall(r'^#{1,2}\s+.+', content, re.MULTILINE)
+
+if len(headings) < 3:
+    # 볼드 제목(**제목**)을 마크다운 헤딩으로 변환
+    content = re.sub(
+        r'^(\*\*(.+?)\*\*)\s*$',
+        lambda m: f'# {m.group(2)}',
+        content, flags=re.MULTILINE
+    )
+
+# ============================
+# 4. DOCX 호환성 정리 (Python으로 처리 — bash sed/tr 사용 금지!)
+# ============================
+
+# 4-1. 블록 인용(> ) 제거 — DOCX에서 세로 텍스트 문제 유발
+lines = content.split('\n')
+cleaned = []
+for line in lines:
+    if line.startswith('> '):
+        cleaned.append(line[2:])
+    elif line == '>':
+        cleaned.append('')
+    else:
+        cleaned.append(line)
+content = '\n'.join(cleaned)
+
+# 4-2. 4칸 들여쓰기 제거 — 코드 블록으로 오인됨
+content = re.sub(r'^    ', '', content, flags=re.MULTILINE)
+
+# 4-3. --- 구분선 제거 — YAML 메타데이터로 오인됨
+content = re.sub(r'^---$', '', content, flags=re.MULTILINE)
+
+# ============================
+# 5. 스마트 따옴표 변환 (straight → curly)
+# ============================
+# DOCX/EPUB에서 일관된 타이포그래피 따옴표 사용
+def smart_quotes(text):
+    result = []
+    in_double = False
+    for ch in text:
+        if ch == '"':
+            result.append('\u201d' if in_double else '\u201c')
+            in_double = not in_double
+        elif ch == "'":
+            # 이전 문자가 글자/숫자면 닫는 따옴표(어포스트로피)
+            if result and (result[-1].isalnum() or result[-1] in '.,!?'):
+                result.append('\u2019')
+            else:
+                result.append('\u2018')
+        else:
+            result.append(ch)
+    return ''.join(result)
+
+content = smart_quotes(content)
+
+# ============================
+# 6. 이미지 참조 추가 (media/ 폴더에 이미지가 있는 경우)
+# ============================
+media_dir = os.path.join(os.path.dirname(INPUT) or '.', 'media')
+if os.path.isdir(media_dir):
+    imgs = sorted(os.listdir(media_dir))
+    if imgs:
+        content = f'![표지](media/{imgs[0]})\n\n' + content
+
+# ============================
+# 7. 빈 줄 정리 (3줄 이상 연속 → 2줄, 빈 줄 자체는 보존!)
+# ============================
+content = re.sub(r'\n{3,}', '\n\n', content)
+
+# ============================
+# 저장
+# ============================
+with open(OUTPUT, 'w', encoding='utf-8') as f:
+    f.write(content)
+
+# ============================
+# 검증 출력
+# ============================
+lines_final = content.split('\n')
+empty_count = sum(1 for l in lines_final if l.strip() == '')
+h1_count = sum(1 for l in lines_final if l.startswith('# '))
+h2_count = sum(1 for l in lines_final if l.startswith('## '))
+
+print(f'=== 아티팩트 검사 ===')
+print(f'총 라인: {len(lines_final)}줄 (빈 줄: {empty_count}개)')
+print(f'[Pg] 마커: {len(re.findall(r"\\[Pg ", content))}건')
+print(f'AI alt text: {content.count("AI 생성 콘텐츠")}건')
+print(f'gutenberg 링크: {content.count("gutenberg.org")}건')
+print(f'straight double quotes: {content.count(chr(34))}건')
+print(f'# 헤딩: {h1_count}개')
+print(f'## 헤딩: {h2_count}개')
+
+assert empty_count > 0, 'ERROR: 빈 줄이 0개 — 문단 구분이 사라짐!'
+assert h1_count >= 3, f'ERROR: H1 헤딩이 {h1_count}개로 부족 (최소 3개 필요)'
+print(f'\n✓ 검증 통과: 빈 줄 {empty_count}개 보존, 헤딩 {h1_count}개')
 ```
 
-> **중요**: 이 정리 과정을 거치지 않으면 DOCX에서 텍스트가 세로로 늘어지는 문제가 발생합니다.
+> **중요**: 아티팩트가 0건이어야 하며, 빈 줄(문단 구분)이 반드시 보존되어야 하고, 헤딩이 최소 3개 이상 있어야 EPUB 챕터 분할이 정상 동작합니다.
 
 ---
 
@@ -217,6 +348,10 @@ $OUTPUT_DIR/
 ## 완료 조건
 
 - [ ] 모든 청크가 올바른 순서로 병합됨
+- [ ] 아티팩트 0건 (페이지 마커, AI alt text, 외부 링크)
+- [ ] 빈 줄(문단 구분) 보존됨 (빈 줄 0개이면 **실패**)
+- [ ] 스마트 따옴표 적용됨 (straight quotes `"` → curly quotes `""`)
+- [ ] 마크다운 헤딩 3개 이상 (EPUB 챕터 분할 가능)
 - [ ] `${FILE_NAME}_${TARGET_LANG}.md` 생성됨
 - [ ] `${FILE_NAME}_${TARGET_LANG}.docx` 생성됨
 - [ ] `${FILE_NAME}_${TARGET_LANG}.epub` 생성됨
